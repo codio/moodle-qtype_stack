@@ -100,6 +100,7 @@ class stack_cas_castext_castextparser extends Parser\Basic {
             case "ioblock":
             case "rawcasblock":
             case "texcasblock":
+            case "mathmode":
             case "mathmodeopen":
             case "mathmodeclose":
             case "bagintexenv":
@@ -132,7 +133,9 @@ class stack_cas_castext_castextparser extends Parser\Basic {
                 foreach ($parsetree['item'] as $key => $value) {
                     if ($value['_matchrule'] == 'mathmodeclose') {
                         $mathmode = false;
-                    } else if ($value['_matchrule'] == 'mathmodeopen') {
+                    } else if ($value['_matchrule'] == 'mathmodeopen' && $mathmode === true) { //$$
+                        $mathmode = false;
+                    } else if ($value['_matchrule'] == 'mathmodeopen' && $mathmode !== true) {
                         $mathmode = true;
                     } else if ($value['_matchrule'] == 'begintexenv' &&
                             array_search($value['value']['text'], self::$mathmodeenvs) !== false) {
@@ -418,7 +421,8 @@ class stack_cas_castext_castextparser extends Parser\Basic {
     /*!*
     texcasblock: "{@" cascontent:/[^@]+/ "@}"
     rawcasblock: "{#" cascontent:/[^#]+/ "#}"
-    mathmodeopen: ( '\(' | '\[' )
+    mathmode: "$" cascontent:/[^$]+/ "$"
+    mathmodeopen: ( '\(' | '\[' | '$$')
     mathmodeclose: ( '\)' | '\]' )
     begintexenv: "\begin{" value:/[a-zA-Z0-9\*]+/ "}"
     endtexenv: "\end{" value:/[a-zA-Z0-9\*]+/ "}"
@@ -431,7 +435,7 @@ class stack_cas_castext_castextparser extends Parser\Basic {
     blockempty: '[[' ws? name:blockid (params:param)* ws? '/]]'
     blockopen: '[[' ws? name:blockid (params:param)* ws? ']]'
     blockclose: '[[/' ws? name:blockid ws? ']]'
-    castext : ( item:ioblock | item:texcasblock | item:rawcasblock | item:mathmodeopen | item:mathmodeclose | item:misc | item:ws | item:blockclose | item:blockopen | item:blockempty | item:begintexenv | item:endtexenv | item:breaks)*
+    castext : ( item:mathmode | item:ioblock | item:texcasblock | item:rawcasblock | item:mathmodeopen | item:mathmodeclose | item:misc | item:ws | item:blockclose | item:blockopen | item:blockempty | item:begintexenv | item:endtexenv | item:breaks)*
     */
 
     // SO WOULD HAVE WANTED THIS BUT COULD NOT UNDERSTAND HOWTO... SO NOW WE HAVE THE NESTED PARSING DONE AFTERWARDS.
@@ -498,6 +502,8 @@ class stack_cas_castext_parsetreenode {
             case "texcasblock":
                 $node->type = $parsetree['_matchrule'];
                 $node->content = $parsetree['cascontent']['text'];
+            case "mathmode":
+                $node->mathmode = true;
                 break;
             default:
                 $node->type = 'text';
@@ -861,6 +867,8 @@ class stack_cas_castext_parsetreenode {
                     return "{@" . $this->content . "@}";
                 case "rawcasblock":
                     return "{#" . $this->content . "#}";
+                case "mathmode":
+                    return "$" . $this->content . "$";
             }
         } else if ($format == 'condensed') {
             switch ($this->type) {
@@ -896,6 +904,8 @@ class stack_cas_castext_parsetreenode {
                     return "{@" . $this->content . "@}";
                 case "rawcasblock":
                     return "{#" . $this->content . "#}";
+                case "mathmode":
+                    return "$" . $this->content . "$";
             }
         } else if ($format == 'debug') {
             switch ($this->type) {
@@ -952,6 +962,8 @@ class stack_cas_castext_parsetreenode {
                     return "{@" . $this->content . "@}";
                 case "rawcasblock":
                     return "{#" . $this->content . "#}";
+                case "mathmode":
+                    return "$" . $this->content . "$";
             }
         }
 
