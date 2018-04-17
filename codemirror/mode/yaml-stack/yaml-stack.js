@@ -56,7 +56,8 @@ CodeMirror.defineMode("yaml-stack", function(config) {
         literal: false,
         escaped: false,
         contentField: false,
-        contentModeState: null
+        contentModeState: null,
+        indentation: 0
       };
     },
 
@@ -71,7 +72,8 @@ CodeMirror.defineMode("yaml-stack", function(config) {
         literal: state.literal,
         escaped: state.escaped,
         contentField: state.contentField,
-        contentModeState: mode ? CodeMirror.copyState(mode, state.contentModeState) : null
+        contentModeState: mode ? CodeMirror.copyState(mode, state.contentModeState) : null,
+        indentation: state.indentation
       }
     },
 
@@ -79,6 +81,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       var ch = stream.peek();
       var esc = state.escaped;
       state.escaped = false;
+      state.indentation = stream.indentation();
       /* comments */
       if (ch == "#" && (stream.pos == 0 || /\s/.test(stream.string.charAt(stream.pos - 1)))) {
         stream.skipToEnd();
@@ -163,14 +166,12 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       }
       if (state.pair && stream.match(/^:\s*/)) { state.pairStart = true; return 'meta'; }
 
-      if (state.pair && state.pairStart) {
-        var mode = curMode(state);
-        if (mode) {
-          state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
-          console.log(state.contentModeState)
-          return mode.token(stream, state.contentModeState);
-        }
+      var mode = curMode(state);
+      if (mode) {
+        state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
+        return mode.token(stream, state.contentModeState);
       }
+
       /* nothing found, continue */
       state.pairStart = false;
       state.escaped = (ch == '\\');
