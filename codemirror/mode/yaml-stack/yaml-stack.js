@@ -63,6 +63,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
 
     copyState: function(state) {
       var mode = curMode(state);
+
       return {
         pair: state.pair,
         pairStart: state.pairStart,
@@ -158,6 +159,9 @@ CodeMirror.defineMode("yaml-stack", function(config) {
           } else {
             state.contentField = false;
             state.contentModeState = null;
+          }
+          if (state.contentField) {
+            state.contentModeState = CodeMirror.startState(curMode(state))
           }
           state.pair = true;
           state.keyCol = stream.indentation();
