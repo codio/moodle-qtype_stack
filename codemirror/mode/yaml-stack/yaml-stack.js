@@ -3,16 +3,16 @@
 
 (function(mod) {
   if (typeof exports == "object" && typeof module == "object") // CommonJS
-    mod(require("../../lib/codemirror"), require("../gfm/gfm"), require("../xml/xml"));
+    mod(require("../../lib/codemirror"), require("../markdown/markdown"), require("../xml/xml"));
   else if (typeof define == "function" && define.amd) // AMD
-    define(["../../lib/codemirror", "../gfm/gfm", "../xml/xml"], mod);
+    define(["../../lib/codemirror", "../markdown/markdown", "../xml/xml"], mod);
   else // Plain browser env
     mod(CodeMirror);
 })(function(CodeMirror) {
 "use strict";
 
 CodeMirror.defineMode("yaml-stack", function(config) {
-
+  var paramPattern = /^\s*(?:[,\[\]{}&*!|>'"%@`][^\s'":]|[^,\[\]{}#&*!|>'"%@`])[^#]*?(?=\s*:($|\s))/;
   var HTML = 1, MARKDOWN = 2;
 
   var makeRegex = function (words) {
@@ -31,7 +31,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
   var contentFieldsRegex = makeRegex(contentFields);
   var contentFieldsHtmlRegex = makeRegex(contentFieldsHtml);
 
-  var gfmMode = CodeMirror.getMode(config, "gfm");
+  var markdownMode = CodeMirror.getMode(config, "markdown");
   var htmlMode = CodeMirror.getMode(config, "text/html");
 
   function curMode(state) {
@@ -39,7 +39,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       case HTML:
         return htmlMode;
       case MARKDOWN:
-        return gfmMode;
+        return markdownMode;
       default:
         return null;
     }
@@ -79,10 +79,19 @@ CodeMirror.defineMode("yaml-stack", function(config) {
     },
 
     token: function(stream, state) {
+      var mode;
       var ch = stream.peek();
       var esc = state.escaped;
       state.escaped = false;
       state.indentation = stream.indentation();
+
+      if (state.contentField && !stream.match(paramPattern, false)) {
+        mode = curMode(state);
+        if (mode) {
+          state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
+          return mode.token(stream, state.contentModeState);
+        }
+      }
       /* comments */
       if (ch == "#" && (stream.pos == 0 || /\s/.test(stream.string.charAt(stream.pos - 1)))) {
         stream.skipToEnd();
@@ -150,7 +159,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
 
       /* pairs (associative arrays) -> key */
       if (!state.pair) {
-        var match = stream.match(/^\s*(?:[,\[\]{}&*!|>'"%@`][^\s'":]|[^,\[\]{}#&*!|>'"%@`])[^#]*?(?=\s*:($|\s))/);
+        var match = stream.match(paramPattern);
         if (match) {
           if (match[0].match(contentFieldsRegex)) {
             state.contentField = MARKDOWN;
@@ -170,7 +179,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       }
       if (state.pair && stream.match(/^:\s*/)) { state.pairStart = true; return 'meta'; }
 
-      var mode = curMode(state);
+      mode = curMode(state);
       if (mode) {
         state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
         return mode.token(stream, state.contentModeState);
