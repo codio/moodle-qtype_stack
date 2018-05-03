@@ -45,6 +45,14 @@ CodeMirror.defineMode("yaml-stack", function(config) {
     }
   }
 
+  function processContentField(state, stream) {
+    var mode = curMode(state);
+    if (mode) {
+      state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
+      return mode.token(stream, state.contentModeState);
+    }
+  }
+
   return {
     startState: function() {
       return {
@@ -57,7 +65,8 @@ CodeMirror.defineMode("yaml-stack", function(config) {
         escaped: false,
         contentField: false,
         contentModeState: null,
-        indentation: 0
+        indentation: 0,
+        processLine: false
       };
     },
 
@@ -74,24 +83,25 @@ CodeMirror.defineMode("yaml-stack", function(config) {
         escaped: state.escaped,
         contentField: state.contentField,
         contentModeState: mode ? CodeMirror.copyState(mode, state.contentModeState) : null,
-        indentation: state.indentation
+        indentation: state.indentation,
+        processLine: state.processLine
       }
     },
 
     token: function(stream, state) {
-      var mode;
       var ch = stream.peek();
       var esc = state.escaped;
       state.escaped = false;
       state.indentation = stream.indentation();
 
-      if (state.contentField && !stream.match(paramPattern, false)) {
-        mode = curMode(state);
-        if (mode) {
-          state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
-          return mode.token(stream, state.contentModeState);
+      if (state.processLine) {
+        if (stream.sol()) {
+          state.processLine = false;
+        } else {
+          return processContentField(state, stream);
         }
       }
+
       /* comments */
       if (ch == "#" && (stream.pos == 0 || /\s/.test(stream.string.charAt(stream.pos - 1)))) {
         stream.skipToEnd();
@@ -102,6 +112,10 @@ CodeMirror.defineMode("yaml-stack", function(config) {
         return "string";
 
       if (state.literal && stream.indentation() > state.keyCol) {
+        if (state.contentField) {
+          state.processLine = true;
+          return processContentField(state, stream);
+        }
         stream.skipToEnd(); return "string";
       } else if (state.literal) { state.literal = false; }
       if (stream.sol()) {
@@ -145,7 +159,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       }
 
       /* start of value of a pair */
-      if (state.pairStart && !state.contentField) {
+      if (state.pairStart) {
         /* block literals */
         if (stream.match(/^\s*(\||\>)\s*/)) { state.literal = true; return 'meta'; };
         /* references */
@@ -161,6 +175,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       if (!state.pair) {
         var match = stream.match(paramPattern);
         if (match) {
+          state.processLine = false;
           if (match[0].match(contentFieldsRegex)) {
             state.contentField = MARKDOWN;
           } else if (match[0].match(contentFieldsHtmlRegex)) {
@@ -177,12 +192,10 @@ CodeMirror.defineMode("yaml-stack", function(config) {
           return "atom";
         }
       }
-      if (state.pair && stream.match(/^:\s*/)) { state.pairStart = true; return 'meta'; }
-
-      mode = curMode(state);
-      if (mode) {
-        state.contentModeState = state.contentModeState || CodeMirror.startState(mode);
-        return mode.token(stream, state.contentModeState);
+      if (state.pair && stream.match(/^:\s*/)) {
+        state.pairStart = true;
+        state.processLine = !stream.match(/^\s*(\||\>)\s*/, false) && !!state.contentField;
+        return 'meta';
       }
 
       /* nothing found, continue */
