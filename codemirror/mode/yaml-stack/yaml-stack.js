@@ -161,7 +161,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
       /* start of value of a pair */
       if (state.pairStart) {
         /* block literals */
-        if (stream.match(/^\s*(\||\>)\s*/)) { state.literal = true; return 'meta'; };
+        if (stream.match(/^\s*((\||\>)(\+|-)?)\s*/)) { state.literal = true; return 'meta'; }
         /* references */
         if (stream.match(/^\s*(\&|\*)[a-z0-9\._-]+\b/i)) { return 'variable-2'; }
         /* numbers */
