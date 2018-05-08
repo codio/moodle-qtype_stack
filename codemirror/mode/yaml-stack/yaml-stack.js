@@ -3,9 +3,9 @@
 
 (function(mod) {
   if (typeof exports == "object" && typeof module == "object") // CommonJS
-    mod(require("../../lib/codemirror"), require("../markdown/markdown"), require("../xml/xml"));
+    mod(require("../../lib/codemirror"), require("../markdown/markdown"), require("html-code-blocks"));
   else if (typeof define == "function" && define.amd) // AMD
-    define(["../../lib/codemirror", "../markdown/markdown", "../xml/xml"], mod);
+    define(["../../lib/codemirror", "../markdown/markdown", "html-code-blocks"], mod);
   else // Plain browser env
     mod(CodeMirror);
 })(function(CodeMirror) {
@@ -32,7 +32,7 @@ CodeMirror.defineMode("yaml-stack", function(config) {
   var contentFieldsHtmlRegex = makeRegex(contentFieldsHtml);
 
   var markdownMode = CodeMirror.getMode(config, "markdown");
-  var htmlMode = CodeMirror.getMode(config, "text/html");
+  var htmlMode = CodeMirror.getMode(config, "html-code-blocks");
 
   function curMode(state) {
     switch (state.contentField) {
