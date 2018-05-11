@@ -9,7 +9,33 @@
   else // Plain browser env
     mod(CodeMirror)
 })(function (CodeMirror) {
-  CodeMirror.defineMode("html-code-blocks", function (config) {
+  CodeMirror.defineMode("blocks-overlay", function () {
+    return {
+      startState: function () {
+        return {
+          openedBlocks: 0
+        }
+      },
+      token: function (stream, state) {
+        if (stream.match(/\[\[/)) {
+          state.openedBlocks++;
+          return "meta";
+        }
+        if (stream.match(/]]/)) {
+          state.openedBlocks = Math.max(0, state.openedBlocks - 1);
+          return "meta";
+        }
+        stream.next();
+        if (state.openedBlocks > 0) {
+          return "string";
+        } else {
+          return null;
+        }
+      }
+    }
+  });
+
+  CodeMirror.defineMode("html-with-blocks", function (config) {
     var htmlMode = CodeMirror.getMode(config, "text/html");
 
     return {
@@ -28,19 +54,24 @@
       token: function (stream, state) {
         if (stream.match(/\[\[/)) {
           state.openedBlocks++;
-          return "meta";
         }
         if (stream.match(/]]/)) {
-          state.openedBlocks--;
-          return "meta";
+          state.openedBlocks = Math.max(0, state.openedBlocks - 1);
         }
         if (state.openedBlocks > 0) {
           stream.next();
-          return "string"
+          return null
         } else {
           return htmlMode.token(stream, state.html)
         }
       }
     }
-  })
+  });
+
+  CodeMirror.defineMode("html-code-blocks", function(config) {
+    var htmlWithBlocks = CodeMirror.getMode(config, "html-with-blocks");
+    var blocksOverlay = CodeMirror.getMode(config, "blocks-overlay");
+    return CodeMirror.overlayMode(htmlWithBlocks, blocksOverlay);
+  });
+
 });
